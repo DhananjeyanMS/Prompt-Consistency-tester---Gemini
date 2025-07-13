@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Prompt Consistency Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0; /* Remove default body margin */
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex; /* Use flexbox for the entire body */
+            flex-direction: column; /* Stack header and main content vertically */
+            min-height: 100vh; /* Make body at least viewport height */
+        }
+        h1, h2, h3, h4 {
+            color: #0056b3;
+        }
+
+        /* --- Main Layout Container --- */
+        .main-container {
+            display: flex; /* Flex container for left and right panels */
+            flex: 1; /* Allow it to grow and fill available space */
+            padding: 20px; /* Padding around the split content */
+            gap: 20px; /* Space between the left and right panels */
+            overflow: hidden; /* Prevent main container from scrolling */
+        }
+
+        /* --- Left Panel (Form) --- */
+        .left-panel {
+            flex: 0 0 30%; /* Take up 30% width, don't grow/shrink */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto; /* Allow scrolling within the form if it gets too long */
+        }
+
+        /* --- Right Panel (Results) --- */
+        .right-panel {
+            flex: 1; /* Take up remaining space (approx 70%) */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 5px solid #007bff; /* Keep the existing border */
+            overflow-y: auto; /* Allow scrolling within the results if they get too long */
+        }
+
+        /* --- Form Specific Styles --- */
+        form {
+            background-color: #fff; /* Re-apply background as it's inside left-panel */
+            padding: 0; /* Remove padding as it's handled by left-panel */
+            border-radius: 0; /* Remove border-radius as it's handled by left-panel */
+            box-shadow: none; /* Remove box-shadow as it's handled by left-panel */
+            margin-bottom: 0; /* Adjust margin */
+        }
+        form div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"],
+        input[type="text"],
+        input[type="file"],
+        select {
+            width: 100%; /* Make them fill their container */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- General UI Elements --- */
+        .flash-message {
+            padding: 10px;
+            margin: 20px; /* Adjust margin for overall page padding */
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .flash-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .summary-box {
+            background-color: #e9f7ff;
+            border: 1px solid #b3e0ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .result-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .result-item.consistent {
+            border-left: 5px solid green;
+        }
+        .result-item.inconsistent {
+            border-left: 5px solid orange;
+        }
+        .result-item.failed {
+            border-left: 5px solid red;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-x: auto;
+        }
+
+        /* Highlighting Styles */
+        .stable-green {
+            color: green;
+            font-weight: bold;
+        }
+        .inconsistent-red {
+            color: red;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        /* --- Responsive Design (Optional but Recommended) --- */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column; /* Stack panels vertically on smaller screens */
+                padding: 10px;
+                gap: 10px;
+            }
+            .left-panel, .right-panel {
+                flex: 0 0 auto; /* Allow content to dictate height */
+                width: 100%; /* Take full width */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Gemini Prompt Consistency Tester</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="flash-message {{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
+    <div class="main-container">
+        <div class="left-panel">
+            <h2>Test Configuration</h2>
+            <form action="/" method="post" enctype="multipart/form-data">
+                <div>
+                    <label for="gemini_api_key">Gemini API Key:</label>
+                    <input type="text" id="gemini_api_key" name="gemini_api_key" placeholder="Enter your Gemini API Key (e.g., AIza...)" required>
+                </div>
+                <div>
+                    <label for="system_message_file">Upload System Message (.txt):</label>
+                    <input type="file" id="system_message_file" name="system_message_file" accept=".txt" required>
+                </div>
+                <div>
+                    <label for="user_message_file">Upload User Message (.txt):</label>
+                    <input type="file" id="user_message_file" name="user_message_file" accept=".txt" required>
+                </div>
+                <div>
+                    <label for="num_runs">Number of Test Runs:</label>
+                    <input type="number" id="num_runs" name="num_runs" value="5" min="1" required>
+                </div>
+                <div>
+                    <label for="model_name">Select Gemini Model:</label>
+                    <select id="model_name" name="model_name">
+                        <option value="gemini-1.5-pro-latest">gemini-1.5-pro-latest</option>
+                        <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest</option>
+                        <option value="gemini-2.0-flash-001">gemini-2.0-flash-001</option>
+                        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="temperature">Temperature (0.0 - 1.0):</label>
+                    <input type="number" id="temperature" name="temperature" value="0.7" step="0.1" min="0.0" max="1.0">
+                </div>
+                <div>
+                    <label for="seed">Seed (Optional - Integer):</label>
+                    <input type="text" id="seed" name="seed" placeholder="Enter an integer for reproducibility">
+                </div>
+                <button type="submit">Run Tests</button>
+            </form>
+        </div>
+
+        <div class="right-panel">
+            {% if results %}
+                <h2>Test Results</h2>
+                <div class="summary-box">
+                    <p><strong>Overall Consistency:</strong> {{ results.overall_consistency_percentage }}% ({{ results.identical_count }} / {{ results.total_runs }} runs identical)</p>
+                    {% if results.summary_message %}
+                        <p><em>{{ results.summary_message }}</em></p>
+                    {% endif %}
+                </div>
+
+                <h3>Individual Run Outputs:</h3>
+                {% for result in results.individual_results %}
+                    <details class="result-item {% if result.status == 'Success' %}{% if result.is_consistent_with_most_frequent %}consistent{% else %}inconsistent{% endif %}{% else %}failed{% endif %}">
+                        <summary>
+                            Run {{ result.run_number }}: Status: {{ result.status }}
+                            {% if result.status == 'Success' %}
+                                {% if result.is_consistent_with_most_frequent %} (Consistent) {% else %} (Inconsistent) {% endif %}
+                            {% endif %}
+                        </summary>
+                        {% if result.status == 'Success' %}
+                            <h4>Output: (Highlighted for Consistency)</h4>
+                            <pre>{{ result.highlighted_output | safe }}</pre>
+                            
+                            {% if not result.is_consistent_with_most_frequent %}
+                                <details>
+                                    <summary>View Most Frequent Output (for reference)</summary>
+                                    <h4>Most Frequent Output:</h4>
+                                    <pre>{{ results.most_frequent_output }}</pre>
+                                </details>
+                            {% endif %}
+                        {% else %} {# This block handles 'Failed' status #}
+                            <h4>Error/Failed Run Output:</h4>
+                            <pre>{{ result.raw_output }}</pre> {# Display error message for failed runs #}
+                        {% endif %}
+                    </details>
+                {% endfor %}
+            {% else %}
+                <p>Submit the form on the left to run tests and see results here.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiKeyInput = document.getElementById('gemini_api_key');
+            const storedApiKey = localStorage.getItem('geminiApiKey');
+            if (storedApiKey) {
+                apiKeyInput.value = storedApiKey;
+            }
+
+            document.querySelector('form').addEventListener('submit', function() {
+                localStorage.setItem('geminiApiKey', apiKeyInput.value);
+            });
+        });
+    </script>
+</body>
+</html>
